@@ -143,6 +143,7 @@ void ShowDeviceInfo(int bus, int dev, int fun) {
 }
 
 int main(void) {
+    int i =1;
     //Granted privileges 3 for port access
     if (iopl(3))
     {
