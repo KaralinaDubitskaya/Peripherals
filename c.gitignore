@@ -54,3 +54,4 @@ dkms.conf
 CMakeListrs.txt
 *.xml
 *.iml
+*.h
