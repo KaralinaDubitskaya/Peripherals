@@ -3,13 +3,13 @@
 #include "pci.h"
 
 
-int getV(unsigned short int data[2]) {
-    int i = 0;
-    for (i; i < PCI_VENTABLE_LEN; i++)
+int GetVendorID(unsigned short int data[2]) {
+    // pci.h
+    for (int i = 0; i < PCI_VENTABLE_LEN; i++)
     {
         if (PciVenTable[i].VendorId == data[0])
         {
-            printf("Vendor ID: %x", data[0]);
+            printf("Vendor ID: 0x%X", data[0]);
             printf("  %s\n", PciVenTable[i].VendorName);
             return 0;
         }
@@ -18,15 +18,15 @@ int getV(unsigned short int data[2]) {
 }
 
 
-int getD(unsigned short int data[2]) {
-    int i = 0;
-    for (i; i < PCI_DEVTABLE_LEN; i++)
+int GetDeviceID(unsigned short int data[2]) {
+    // pci.h
+    for (int i = 0; i < PCI_DEVTABLE_LEN; i++)
     {
         if (PciDevTable[i].VendorId == data[0])
         {
             if (PciDevTable[i].DeviceId == data[1])
             {
-                printf("Device ID: %x", data[1]);
+                printf("Device ID: 0x%X", data[1]);
                 printf("  %s\n", PciDevTable[i].DeviceName);
                 return 0;
             }
@@ -35,115 +35,101 @@ int getD(unsigned short int data[2]) {
     return 0;
 }
 
-void getDevVen(unsigned int *datar) {
-    unsigned short int *data;
-    data = (unsigned short int *) datar;
-    getV(data);
-    getD(data);
-}
 
-void getInterruptInfo(unsigned int data1) {
-    char *data = (char *) &data1;
-    printf("Interrupt line: ");
-    switch (data[0])
-    {
-        case 255:
-            printf("255(unknown input or not used)\n");
-            break;
-        default:
-            printf("%d\n", data[0]);
-            break;
-    }
-    printf("Interrupt pin: ");
-    switch (data[1])
-    {
-        case 0:
-            printf("not used(0)\n");
-            break;
-        case 1:
-            printf("INTA#(1)\n");
-            break;
-        case 2:
-            printf("INTB#(2)\n");
-            break;
-        case 3:
-            printf("INTC#(3)\n");
-            break;
-        case 4:
-            printf("INTD#(4)\n");
-            break;
-        case 5:
-            printf("FFh reserve(5)\n");
-            break;
-        default:
-            printf("%d\n", data[1]);
-            break;
-    }
-}
-
-void getPortInfo(unsigned int *datar) {
+void GetClassCodeInfo(unsigned int *dataReg) {
     char *data;
-    data = (char *) datar;
-    printf("Primary bus number: %d\n", data[0]);
-    printf("Secondary bus number: %d\n", data[1]);
-    printf("Subordinate bus number: %d\n", data[2]);
+    data = (char *) dataReg;
+    printf("\nBase class: %.2X\n", data[3]);
+    printf("Subclass:   %.2X\n", data[2]);
+    printf("Interface:  %.2X\n", data[1]);
+
+    if ((data[3] == 06) && (data[2] == 04) && (data[1] == 00))
+    {
+        printf("\nClass: Bus PCI-PCI\n");
+    }
 }
 
-// Составить адрес конфигурационного регистра по номеру шины,
-// номеру устройства, номеру функции и номеру регистра
-unsigned int calculateAddress(int bus, int device, int function, int reg) {
+// Calculate the address of the configuration register using the bus number,
+// the device number, function number and register number
+unsigned int CalculateAddress(int bus, int device, int function, int reg) {
     unsigned int address = 1;
     address = address << 15;
-    address += bus;          // Номер шины, 8 бит
+    address += bus;          // Bus number, 8 bits
     address = address << 5;
-    address += device;       // Номер устройства, 5 бит
+    address += device;       // Device number, 5 bits
     address = address << 3;
-    address += function;     // Номер функции, 3 бита
+    address += function;     // Function number, 3 bits
     address = address << 8;
-    address += reg;
+    address += reg;          // Port number
     return address;
 }
 
-void ShowDeviceInfo(int bus, int dev, int fun) {
-    //
-    unsigned int configAddress = calculateAddress(bus, dev, fun, 0x00);
-    //
+void ShowDeviceInfo(int bus, int dev, int func) {
+
+    // Configuration register address
+    unsigned int configAddress = CalculateAddress(bus, dev, func, 0x00);
+
+    // Read fields of the configuration space
     outl(configAddress, 0xCF8);
     unsigned int regData = inl(0xCFC);
-    if (regData != 0xFFFFFFFF)
+
+    if (regData != 0xFFFFFFFF) // If there is no device, then the register value is = 0xFFFFFFFF
     {
-        //printf("%d:%d:%d\n", i, j, k);
-        printf("%x\n", regData);
-        getDevVen(&regData);
+        printf("Address: %d:%d.%d\n", bus, dev, func);
+
+        GetVendorID((unsigned short int *)&regData);
+        GetDeviceID((unsigned short int *)&regData);
+
+        // Get Header Type field address
         configAddress += 0x0C;
         outl(configAddress, 0xCF8);
         regData = inl(0xCFC);
+
+        configAddress -= 0x0C;
+
         if (!(regData & 0x10000))
         {
-            printf("not port\n");
-            configAddress -= 0x0C;
-            configAddress += 0x3C;
+            // *Not bus*
+            // Get Base I/O register field address
+            configAddress += 0x10;
+
+            for (int i = 0; i < 6; i++)
+            {
+                configAddress += i * 0x04;
+                outl(configAddress, 0xCF8);
+                regData = inl(0xCFC);
+
+                if (regData & 1)
+                {
+                    printf("\nBAR I/O registers: 0x%.8X\n", regData);
+                }
+            }
+
+            // Get ROM registers field address
+            configAddress -= 0x24;
+            configAddress += 0x30;
             outl(configAddress, 0xCF8);
             regData = inl(0xCFC);
-            getInterruptInfo(regData);
-            configAddress -= 0x3C;
-        } else
-        {
-            printf("port\n");
-            configAddress -= 0x0C;
-            configAddress += 0x18;
-            outl(configAddress, 0xCF8);
-            regData = inl(0xCFC);
-            getPortInfo(&regData);
-            configAddress -= 0x18;
+
+            printf("\nROM registers: 0x%X\n", regData);
         }
-        printf("---------------------\n");
+        else
+        {
+            // *Bus*
+            // Get Class Code field address
+            configAddress += 0x08;
+            outl(configAddress, 0xCF8);
+            regData = inl(0xCFC);
+
+            GetClassCodeInfo(&regData);
+        }
+
+        printf("_________________________________________________________________________________________________________\n\n");
     }
 
 }
 
 int main(void) {
-    int i =1;
     //Granted privileges 3 for port access
     if (iopl(3))
     {
@@ -151,7 +137,7 @@ int main(void) {
         return 1;
     }
 
-    //main cycle
+    //Main cycle
     for (int bus = 0; bus < 256; bus++)              // Bus number, 8 bits, 2^8 = 256
         for (int dev = 0; dev < 32; dev++)           // Device number, 5 bits, 2^5 = 32
             for (int func = 0; func < 8; func++)     // Function number, 3 bits, 2^3 = 8
