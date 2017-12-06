@@ -49,8 +49,8 @@ void GetClassCodeInfo(unsigned int *dataReg) {
     }
 }
 
-// Calculate the address of the configuration register using the bus number,
-// the device number, function number and register number
+/* Calculate the address of the configuration register using the bus number,
+   the device number, function number and register number */
 unsigned int CalculateAddress(int bus, int device, int function, int reg) {
     unsigned int address = 1;
     address = address << 15;
