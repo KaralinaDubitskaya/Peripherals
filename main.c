@@ -95,7 +95,7 @@ void ShowDeviceInfo(int bus, int dev, int func) {
 
             for (int i = 0; i < 6; i++)
             {
-                configAddress += i * 0x04;
+                configAddress += 0x04;
                 outl(configAddress, 0xCF8);
                 regData = inl(0xCFC);
 
