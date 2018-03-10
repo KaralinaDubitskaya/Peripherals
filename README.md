@@ -1,7 +1,8 @@
 # Peripherals
+
 ## Description
 The program generates a cycle for checking and identifying PCI devices, 
-reading the first two fields of the configuration space - Vendor ID (manufacturer) 
+reading the first two fields of the configuration space: Vendor ID (manufacturer) 
 and Device ID (device) codes. 
 Using the structures defined in the header file pci.h, the names of manufacturers 
 and devices are decoded.
@@ -24,5 +25,5 @@ $ sudo ./Peripherals.out
 ```
 
 ## Contact
-Karalina Dubitskaya
+Karalina Dubitskaya                                                                                              
 karalinadubitskaya@gmail.com
